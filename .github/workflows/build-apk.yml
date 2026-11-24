@@ -1,0 +1,146 @@
+name: Build WebView APK
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Create Android WebView project
+        run: |
+          mkdir -p app/src/main/java/com/webwrapper app/src/main/res/layout app/src/main/assets
+          cp -r web_payload/* app/src/main/assets/ 2>/dev/null || true
+
+          cat << 'EOF' > settings.gradle
+          include ':app'
+          EOF
+
+          cat << 'EOF' > build.gradle
+          buildscript {
+            repositories {
+              google()
+              mavenCentral()
+            }
+            dependencies {
+              classpath 'com.android.tools.build:gradle:8.2.2'
+            }
+          }
+          allprojects {
+            repositories {
+              google()
+              mavenCentral()
+            }
+          }
+          EOF
+
+          cat << 'EOF' > app/build.gradle
+          plugins {
+            id 'com.android.application'
+          }
+          android {
+            namespace "com.webwrapper"
+            compileSdk 34
+            defaultConfig {
+              applicationId "com.webwrapper.app"
+              minSdk 24
+              targetSdk 34
+              versionCode 1
+              versionName "1.0"
+            }
+            buildTypes {
+              release {
+                minifyEnabled false
+              }
+            }
+          }
+          dependencies {
+            implementation 'androidx.appcompat:appcompat:1.6.1'
+          }
+          EOF
+
+          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <uses-permission android:name="android.permission.INTERNET" />
+            <application
+              android:label="WebAppAPK"
+              android:usesCleartextTraffic="true"
+              android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+              <activity android:name=".MainActivity" android:exported="true">
+                <intent-filter>
+                  <action android:name="android.intent.action.MAIN" />
+                  <category android:name="android.intent.category.LAUNCHER" />
+                </intent-filter>
+              </activity>
+            </application>
+          </manifest>
+          EOF
+
+          cat << 'EOF' > app/src/main/java/com/webwrapper/MainActivity.java
+          package com.webwrapper;
+
+          import android.os.Bundle;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          import androidx.appcompat.app.AppCompatActivity;
+
+          public class MainActivity extends AppCompatActivity {
+            @Override
+            protected void onCreate(Bundle savedInstanceState) {
+              super.onCreate(savedInstanceState);
+              WebView webView = new WebView(this);
+              WebSettings s = webView.getSettings();
+              s.setJavaScriptEnabled(true);
+              s.setDomStorageEnabled(true);
+              s.setAllowFileAccess(true);
+              webView.setWebViewClient(new WebViewClient());
+
+              String targetUrl = "file:///android_asset/index.html";
+              try {
+                String[] assets = getAssets().list("");
+                if (assets != null) {
+                  boolean hasIndex = false;
+                  String firstHtml = null;
+                  for (String name : assets) {
+                    if (name.equals("index.html")) { hasIndex = true; break; }
+                    if (firstHtml == null && name.toLowerCase().endsWith(".html")) {
+                      firstHtml = name;
+                    }
+                  }
+                  if (!hasIndex && firstHtml != null) {
+                    targetUrl = "file:///android_asset/" + firstHtml;
+                  }
+                }
+              } catch (Exception ignored) {}
+
+              webView.loadUrl(targetUrl);
+              setContentView(webView);
+            }
+          }
+          EOF
+
+      - name: Build Debug APK
+        run: |
+          gradle wrapper --gradle-version 8.5
+          ./gradlew assembleDebug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
