@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Termux YT Bridge</title>
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --card: #121826;
+      --card-2: #182134;
+      --border: #25324d;
+      --text: #eef2ff;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-2: #22c55e;
+      --danger: #ef4444;
+      --warn: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at top, #131c31 0%, var(--bg) 60%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 16px;
+      line-height: 1.5;
+    }
+
+    .app {
+      max-width: 680px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 12px 16px;
+      border-radius: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--warn);
+      box-shadow: 0 0 10px var(--warn);
+      transition: 0.25s;
+    }
+
+    .dot.online {
+      background: var(--accent-2);
+      box-shadow: 0 0 10px var(--accent-2);
+    }
+
+    .dot.offline {
+      background: var(--danger);
+      box-shadow: 0 0 10px var(--danger);
+    }
+
+    .status-text {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      background: var(--card-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 11px 13px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .row > * {
+      flex: 1;
+      min-width: 160px;
+    }
+
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 11px 16px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.12s, opacity 0.2s, background 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #06131f;
+    }
+
+    .btn-success {
+      background: var(--accent-2);
+      color: #061b0e;
+    }
+
+    .btn-ghost {
+      background: var(--card-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .video-preview {
+      display: none;
+      background: var(--card-2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .video-preview.show {
+      display: flex;
+    }
+
+    .video-preview img {
+      width: 110px;
+      height: 68px;
+      object-fit: cover;
+      border-radius: 10px;
+      background: #090d16;
+      flex-shrink: 0;
+    }
+
+    .video-meta {
+      overflow: hidden;
+    }
+
+    .video-title {
+      font-weight: 700;
+      font-size: 0.92rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .video-sub {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .step-box {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      padding-top: 4px;
+    }
+
+    .step-box.show {
+      display: flex;
+    }
+
+    .console {
+      background: #070a10;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 12px;
+      min-height: 140px;
+      max-height: 260px;
+      overflow-y: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.82rem;
+      direction: ltr;
+      text-align: left;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .log-info { color: #7dd3fc; }
+    .log-ok { color: #4ade80; }
+    .log-err { color: #f87171; }
+    .log-cmd { color: #fbbf24; }
+
+    .badge {
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.14);
+      color: var(--accent);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- الشريط العلوي وحالة Termux -->
+    <div class="topbar">
+      <div class="brand">
+        <span id="statusDot" class="dot"></span>
+        <span>Termux YT Bridge</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span id="statusText" class="status-text">جاري الفحص...</span>
+        <button class="btn-ghost" style="padding:6px 10px; font-size:0.8rem;" onclick="checkServer()">تحديث</button>
+      </div>
+    </div>
+
+    <!-- إعداد عنوان سيرفر Termux -->
+    <div class="card">
+      <div class="card-title">
+        <span>إعدادات السيرفر المحلي</span>
+        <span class="badge">Termux HTTP</span>
+      </div>
+      <div class="row">
+        <div>
+          <label for="serverUrl">رابط السيرفر</label>
+          <input id="serverUrl" type="text" value="http://127.0.0.1:5000" placeholder="http://127.0.0.1:5000" />
+        </div>
+        <div style="max-width: 170px;">
+          <label for="demoFallback">وضع التجربة بدون سيرفر</label>
+          <select id="demoFallback">
+            <option value="on" selected>مفعّل (محاكاة تلقائية)</option>
+            <option value="off">معطّل (سيرفر حقيقي فقط)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- خطوة 1 و 2: رابط الفيديو واختيار الدقة -->
+    <div class="card">
+      <div class="card-title">
+        <span>تحميل فيديو يوتيوب</span>
+        <span id="stepBadge" class="badge">الخطوة 1: الرابط</span>
+      </div>
+
+      <div>
+        <label for="ytUrl">رابط فيديو يوتيوب</label>
+        <input id="ytUrl" type="url" placeholder="https://youtu.be/... أو https://www.youtube.com/watch?v=..." />
+      </div>
+
+      <div class="row">
+        <button id="nextBtn" class="btn-primary" onclick="fetchFormats()">التالي ← جلب الدقات</button>
+        <button class="btn-ghost" onclick="resetFlow()">إعادة ضبط</button>
+      </div>
+
+      <!-- معاينة معلومات الفيديو -->
+      <div id="videoPreview" class="video-preview">
+        <img id="videoThumb" src="" alt="thumbnail" />
+        <div class="video-meta">
+          <div id="videoTitle" class="video-title">عنوان الفيديو</div>
+          <div id="videoSub" class="video-sub">أقصى دقة متوفرة: --</div>
+        </div>
+      </div>
+
+      <!-- الخطوة 2: اختيار الدقة والتحميل -->
+      <div id="qualityStep" class="step-box">
+        <div>
+          <label for="qualitySelect">اختر الدقة المطلوبة</label>
+          <select id="qualitySelect"></select>
+        </div>
+
+        <button id="downloadBtn" class="btn-success" onclick="startDownload()">بدء التحميل عبر Termux</button>
+      </div>
+    </div>
+
+    <!-- إرسال أوامر مباشرة واستقبال الرد من Termux -->
+    <div class="card">
+      <div class="card-title">
+        <span>أوامر مباشرة مع Termux</span>
+        <span class="badge">Send / Receive</span>
+      </div>
+
+      <div>
+        <label for="cmdInput">أمر لتنفيذه في Termux (اختياري)</label>
+        <input id="cmdInput" type="text" placeholder="مثال: termux-battery-status أو ls -la ~/storage/downloads" />
+      </div>
+
+      <div class="row">
+        <button class="btn-primary" onclick="sendCustomCommand()">إرسال الأمر وتنفيذه</button>
+        <button class="btn-ghost" onclick="clearConsole()">مسح السجل</button>
+      </div>
+
+      <div id="console" class="console"></div>
+    </div>
+  </div>
+
+  <script>
+    // السلم القياسي للدقات من 180p حتى 4K
+    const QUALITY_LADDER = [
+      { label: "180p", height: 180, tag: "منخفضة جداً (توفير بيانات)" },
+      { label: "240p", height: 240, tag: "منخفضة" },
+      { label: "360p", height: 360, tag: "متوسطة - خفيفة" },
+      { label: "480p", height: 480, tag: "SD" },
+      { label: "720p", height: 720, tag: "HD" },
+      { label: "1080p", height: 1080, tag: "Full HD" },
+      { label: "1440p", height: 1440, tag: "2K QHD" },
+      { label: "2160p (4K)", height: 2160, tag: "4K Ultra HD" }
+    ];
+
+    let currentVideoData = null;
+
+    function getBaseUrl() {
+      return document.getElementById("serverUrl").value.trim().replace(/\/+$/, "");
+    }
+
+    function isDemoEnabled() {
+      return document.getElementById("demoFallback").value === "on";
+    }
+
+    function log(msg, type = "info") {
+      const box = document.getElementById("console");
+      const line = document.createElement("div");
+      const time = new Date().toLocaleTimeString("en-GB", { hour12: false });
+      line.className = `log-${type}`;
+      line.textContent = `[${time}] ${msg}`;
+      box.appendChild(line);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function clearConsole() {
+      document.getElementById("console").innerHTML = "";
+    }
+
+    function setServerStatus(state, text) {
+      const dot = document.getElementById("statusDot");
+      const label = document.getElementById("statusText");
+      dot.className = "dot " + state;
+      label.textContent = text;
+    }
+
+    async function checkServer() {
+      setServerStatus("", "جاري الفحص...");
+      try {
+        const res = await fetch(`${getBaseUrl()}/api/ping`, { method: "GET" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        setServerStatus("online", data.message || "Termux متصل");
+        log(`Connected to Termux server at ${getBaseUrl()}`, "ok");
+      } catch (err) {
+        setServerStatus("offline", "السيرفر غير متصل");
+        log(`Server unreachable (${err.message}). ${isDemoEnabled() ? "Demo simulation is active." : "Start server in Termux first."}`, "err");
+      }
+    }
+
+    function extractYouTubeId(url) {
+      const match = url.match(/(?:v=|\/shorts\/|\/live\/|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+      return match ? match[1] : null;
+    }
+
+    // توليد خيارات الدقة من 180p حتى أقصى دقة متوفرة للفيديو
+    function populateQualities(maxHeight, availableHeights = null) {
+      const select = document.getElementById("qualitySelect");
+      select.innerHTML = "";
+
+      const filtered = QUALITY_LADDER.filter(q => {
+        if (q.height > maxHeight) return false;
+        if (Array.isArray(availableHeights) && availableHeights.length > 0) {
+          // نعرض الدقة إذا كانت موجودة في المتوفر أو ضمن السلم حتى maxHeight
+          return availableHeights.includes(q.height) || q.height <= maxHeight;
+        }
+        return true;
+      });
+
+      filtered.forEach((q, idx) => {
+        const opt = document.createElement("option");
+        opt.value = String(q.height);
+        const isMax = idx === filtered.length - 1;
+        opt.textContent = `${q.label} — ${q.tag}${isMax ? " (الأعلى)" : ""}`;
+        if (isMax) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+
+    function simulateVideoProbe(url) {
+      const vid = extractYouTubeId(url) || "dQw4w9WgXcQ";
+      // محاكاة دقات مختلفة بحسب آخر حرف/رقم لتجربة 4K و1080p و720p
+      const lastChar = vid.slice(-1).toLowerCase();
+      let maxHeight = 1080;
+      if ("4k89abc".includes(lastChar)) maxHeight = 2160;
+      else if ("123567".includes(lastChar)) maxHeight = 1080;
+      else maxHeight = 720;
+
+      return {
+        demo: true,
+        id: vid,
+        title: `فيديو يوتيوب (${vid})`,
+        maxHeight,
+        heights: QUALITY_LADDER.filter(q => q.height <= maxHeight).map(q => q.height),
+        thumbnail: `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`
+      };
+    }
+
+    async function fetchFormats() {
+      const url = document.getElementById("ytUrl").value.trim();
+      if (!url) {
+        log("Please paste a YouTube video URL first.", "err");
+        return;
+      }
+
+      const btn = document.getElementById("nextBtn");
+      btn.disabled = true;
+      btn.textContent = "جاري فحص الدقات...";
+      log(`Requesting formats for: ${url}`, "cmd");
+
+      try {
+        let data;
+        try {
+          const res = await fetch(`${getBaseUrl()}/api/formats`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url })
+          });
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          data = await res.json();
+          setServerStatus("online", "Termux متصل");
+        } catch (netErr) {
+          if (!isDemoEnabled()) throw netErr;
+          log("Termux server not reachable -> running local UI simulation.", "info");
+          data = simulateVideoProbe(url);
+        }
+
+        const maxH = Number(data.maxHeight) || 1080;
+        currentVideoData = { ...data, url, maxHeight: maxH };
+
+        // تحديث المعاينة والقائمة
+        const preview = document.getElementById("videoPreview");
+        document.getElementById("videoTitle").textContent = data.title || "فيديو يوتيوب";
+        document.getElementById("videoSub").textContent = `أقصى دقة متوفرة: ${maxH === 2160 ? "2160p (4K)" : maxH + "p"}`;
+        const thumb = document.getElementById("videoThumb");
+        thumb.src = data.thumbnail || "";
+        preview.classList.add("show");
+
+        populateQualities(maxH, data.heights);
+        document.getElementById("qualityStep").classList.add("show");
+        document.getElementById("stepBadge").textContent = "الخطوة 2: اختيار الدقة";
+
+        log(`Formats ready: 180p up to ${maxH}p`, "ok");
+      } catch (err) {
+        log(`Failed to fetch formats: ${err.message}`, "err");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "التالي ← جلب الدقات";
+      }
+    }
+
+    async function startDownload() {
+      if (!currentVideoData) {
+        log("Fetch video formats first.", "err");
+        return;
+      }
+
+      const height = Number(document.getElementById("qualitySelect").value);
+      const payload = {
+        url: currentVideoData.url,
+        height,
+        title: currentVideoData.title
+      };
+
+      const btn = document.getElementById("downloadBtn");
+      btn.disabled = true;
+      btn.textContent = "جاري الإرسال إلى Termux...";
+      log(`Sending download command -> height: ${height}p`, "cmd");
+
+      try {
+        const res = await fetch(`${getBaseUrl()}/api/download`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+
+        log(`Termux response: ${data.output || data.message || "Download started"}`, "ok");
+      } catch (err) {
+        log(`Download request error: ${err.message}`, "err");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "بدء التحميل عبر Termux";
+      }
+    }
+
+    async function sendCustomCommand() {
+      const cmd = document.getElementById("cmdInput").value.trim();
+      if (!cmd) {
+        log("Type a shell command first.", "err");
+        return;
+      }
+
+      log(`$ ${cmd}`, "cmd");
+      try {
+        const res = await fetch(`${getBaseUrl()}/api/exec`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ command: cmd })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+
+        log(data.output || "(Command executed with empty output)", "ok");
+      } catch (err) {
+        log(`Execution error: ${err.message}`, "err");
+      }
+    }
+
+    function resetFlow() {
+      currentVideoData = null;
+      document.getElementById("ytUrl").value = "";
+      document.getElementById("videoPreview").classList.remove("show");
+      document.getElementById("qualityStep").classList.remove("show");
+      document.getElementById("stepBadge").textContent = "الخطوة 1: الرابط";
+      log("Reset download flow.", "info");
+    }
+
+    // فحص الاتصال عند فتح الصفحة
+    window.addEventListener("DOMContentLoaded", () => {
+      log("UI loaded. Checking Termux local server...", "info");
+      checkServer();
+    });
+  </script>
+</body>
+</html>
