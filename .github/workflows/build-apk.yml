@@ -20,17 +20,33 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          api-level: 34
+          build-tools: 34.0.0
 
-      - name: Create Android WebView project
+      - name: Prepare WebView project
         run: |
-          mkdir -p app/src/main/java/com/webwrapper app/src/main/res/layout app/src/main/assets
-          cp -r web_payload/* app/src/main/assets/ 2>/dev/null || true
+          mkdir -p app/src/main/java/com/webwrapper app/src/main/assets
 
-          cat << 'EOF' > settings.gradle
+          if [ -d "web_payload" ]; then
+            cp -r web_payload/* app/src/main/assets/ 2>/dev/null || true
+          fi
+
+          rm -f app/src/main/assets/config.json
+
+          if [ ! -f "app/src/main/assets/index.html" ]; then
+            FIRST_HTML=$(find app/src/main/assets -maxdepth 1 -type f -iname "*.html" | head -n 1)
+            if [ -n "$FIRST_HTML" ]; then
+              cp "$FIRST_HTML" app/src/main/assets/index.html
+            fi
+          fi
+
+          cat << 'SETTINGS_EOF' > settings.gradle
+          rootProject.name = 'WebAppWrapper'
           include ':app'
-          EOF
+          SETTINGS_EOF
 
-          cat << 'EOF' > build.gradle
+          cat << 'ROOT_GRADLE_EOF' > build.gradle
           buildscript {
             repositories {
               google()
@@ -46,15 +62,17 @@ jobs:
               mavenCentral()
             }
           }
-          EOF
+          ROOT_GRADLE_EOF
 
-          cat << 'EOF' > app/build.gradle
+          cat << 'APP_GRADLE_EOF' > app/build.gradle
           plugins {
             id 'com.android.application'
           }
+
           android {
             namespace "com.webwrapper"
             compileSdk 34
+
             defaultConfig {
               applicationId "com.webwrapper.app"
               minSdk 24
@@ -62,25 +80,30 @@ jobs:
               versionCode 1
               versionName "1.0"
             }
+
             buildTypes {
               release {
                 minifyEnabled false
               }
             }
           }
+
           dependencies {
             implementation 'androidx.appcompat:appcompat:1.6.1'
           }
-          EOF
+          APP_GRADLE_EOF
 
-          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          cat << 'MANIFEST_EOF' > app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <uses-permission android:name="android.permission.INTERNET" />
             <application
               android:label="WebAppAPK"
               android:usesCleartextTraffic="true"
               android:theme="@style/Theme.AppCompat.Light.NoActionBar">
-              <activity android:name=".MainActivity" android:exported="true">
+              <activity
+                android:name=".MainActivity"
+                android:exported="true">
                 <intent-filter>
                   <action android:name="android.intent.action.MAIN" />
                   <category android:name="android.intent.category.LAUNCHER" />
@@ -88,9 +111,9 @@ jobs:
               </activity>
             </application>
           </manifest>
-          EOF
+          MANIFEST_EOF
 
-          cat << 'EOF' > app/src/main/java/com/webwrapper/MainActivity.java
+          cat << 'MAIN_EOF' > app/src/main/java/com/webwrapper/MainActivity.java
           package com.webwrapper;
 
           import android.os.Bundle;
@@ -109,30 +132,11 @@ jobs:
               s.setDomStorageEnabled(true);
               s.setAllowFileAccess(true);
               webView.setWebViewClient(new WebViewClient());
-
-              String targetUrl = "file:///android_asset/index.html";
-              try {
-                String[] assets = getAssets().list("");
-                if (assets != null) {
-                  boolean hasIndex = false;
-                  String firstHtml = null;
-                  for (String name : assets) {
-                    if (name.equals("index.html")) { hasIndex = true; break; }
-                    if (firstHtml == null && name.toLowerCase().endsWith(".html")) {
-                      firstHtml = name;
-                    }
-                  }
-                  if (!hasIndex && firstHtml != null) {
-                    targetUrl = "file:///android_asset/" + firstHtml;
-                  }
-                }
-              } catch (Exception ignored) {}
-
-              webView.loadUrl(targetUrl);
+              webView.loadUrl("file:///android_asset/index.html");
               setContentView(webView);
             }
           }
-          EOF
+          MAIN_EOF
 
       - name: Build Debug APK
         run: |
