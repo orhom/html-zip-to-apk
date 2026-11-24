@@ -1,0 +1,4 @@
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:linear-gradient(135deg,#667eea,#764ba2);font-family:sans-serif;color:#fff}
+.card{background:rgba(255,255,255,.15);backdrop-filter:blur(10px);padding:30px;border-radius:16px;text-align:center;border:1px solid rgba(255,255,255,.3)}
+button{background:#fff;color:#333;border:none;padding:10px 20px;border-radius:8px;font-size:15px;cursor:pointer;margin-top:10px}
+button:hover{opacity:.9}
